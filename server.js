@@ -6,14 +6,22 @@ import Anthropic from '@anthropic-ai/sdk';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://dnbrwn11.github.io',
+    'http://localhost:3000',
+    'http://127.0.0.1:5500'
+  ],
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are an expert construction cost estimator with 20+ years of experience in North American commercial construction. You produce detailed, realistic quantity takeoffs and cost estimates.
+const SYSTEM_PROMPT = `You are an expert construction cost estimator with 20+ years of experience in North American commercial construction. You produce detailed, realistic quantity takeoffs and cost estimates for DIRECT COSTS ONLY.
 
-When given a project description, return ONLY a valid JSON object — no markdown, no code fences, no explanation. The JSON must exactly match this structure:
+When given a project description and target budget, return ONLY a valid JSON object — no markdown, no code fences, no explanation. The JSON must exactly match this structure:
 
 {
   "projectTitle": "Short descriptive title",
@@ -38,13 +46,34 @@ Rules:
 - Each category subtotal must equal the sum of its item totals
 - Each item total must equal quantity × unitCost
 - Common units: SF, CY, LF, EA, TON, LS, SY, CSF, MBF
+- The totalCost MUST come within 5% above or below the target budget provided — this is mandatory
+- ALL costs are DIRECT COSTS ONLY:
+  * Do NOT include contingency line items
+  * Do NOT include overhead or markup line items
+  * Do NOT include contractor fee line items
+  * Do NOT include soft costs (design, permits, testing, insurance)
+  * Do NOT include escalation line items
+  * Do NOT include HST/GST/tax line items
+- The "General Conditions & Fees" category must include ONLY these types of items:
+  * Site supervision
+  * Site trailer & temporary facilities
+  * Safety program
+  * Project management
+  * Do NOT include markup, fee, or overhead lines under any circumstance
+- Adjust quantities and unit costs intelligently to hit the budget — think like an experienced estimator and vary line items thoughtfully, do not just scale everything proportionally
+- If the budget seems too low for the project type and scope described, note it in the projectTitle field by appending " (Budget-Constrained)"
 - Return ONLY the JSON object, nothing else`;
 
 app.post('/api/estimate', async (req, res) => {
-  const { description } = req.body;
+  const { description, budget } = req.body;
 
   if (!description || typeof description !== 'string' || !description.trim()) {
     return res.status(400).json({ error: 'A project description is required.' });
+  }
+
+  const parsedBudget = Number(budget);
+  if (!parsedBudget || parsedBudget <= 0 || !isFinite(parsedBudget)) {
+    return res.status(400).json({ error: 'A valid budget is required.' });
   }
 
   try {
@@ -55,7 +84,7 @@ app.post('/api/estimate', async (req, res) => {
       messages: [
         {
           role: 'user',
-          content: `Generate a detailed construction cost estimate for the following project:\n\n${description.trim()}`,
+          content: `Target budget (direct costs only): $${parsedBudget.toLocaleString('en-US')}\nProject description: ${description.trim()}`,
         },
       ],
     });
@@ -64,7 +93,6 @@ app.post('/api/estimate', async (req, res) => {
 
     let estimate;
     try {
-      // Strip any accidental markdown fences before parsing
       const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       estimate = JSON.parse(cleaned);
     } catch {
@@ -86,6 +114,6 @@ export default app;
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
-    console.log(`PCL Estimating server running on http://localhost:${PORT}`);
+    console.log(`Estimate AI server running on http://localhost:${PORT}`);
   });
 }
