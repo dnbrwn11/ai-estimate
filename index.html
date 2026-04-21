@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCL AI Estimating Tool</title>
+  <!-- TODO: update API_URL to your Vercel deployment URL before deploying, e.g. https://your-app.vercel.app -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #FFFFFF;
+      color: #1A1A1A;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #FFFFFF;
+      color: #1A1A1A;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 64px;
+      border-bottom: 1px solid #E5E5E5;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    header .logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #00C2A8;
+    }
+    header h1 {
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: #1A1A1A;
+    }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 1100px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+
+    /* ── Input card ── */
+    .input-card {
+      background: #FFFFFF;
+      border-radius: 10px;
+      padding: 28px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 0 0 1px #E5E5E5;
+      margin-bottom: 24px;
+    }
+    .input-card h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #1A1A1A;
+      margin-bottom: 8px;
+    }
+    .input-card p {
+      font-size: .88rem;
+      color: #555;
+      margin-bottom: 16px;
+      line-height: 1.55;
+    }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 12px 14px;
+      border: 1.5px solid #D0D0D0;
+      border-radius: 7px;
+      font-size: .93rem;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color .2s;
+      line-height: 1.55;
+      color: #1A1A1A;
+      background: #FAFAFA;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #00C2A8;
+      background: #FFFFFF;
+    }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: #00C2A8;
+      color: #fff;
+      border: none;
+      padding: 11px 26px;
+      border-radius: 7px;
+      font-size: .93rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .2s, transform .1s;
+    }
+    .btn-primary:hover:not(:disabled) { background: #009e88; }
+    .btn-primary:active:not(:disabled) { transform: scale(.98); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: transparent;
+      color: #1A1A1A;
+      border: 1.5px solid #C0C0C0;
+      padding: 10px 22px;
+      border-radius: 7px;
+      font-size: .93rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-secondary:hover { background: #F5F5F5; border-color: #999; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 0;
+      color: #444;
+      font-size: .93rem;
+    }
+    .spinner.active { display: flex; }
+    .spinner-ring {
+      width: 26px;
+      height: 26px;
+      border: 3px solid #D8D8D8;
+      border-top-color: #00C2A8;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    .error-box {
+      display: none;
+      background: #FFF5F5;
+      border: 1px solid #FFCCCC;
+      border-radius: 7px;
+      padding: 14px 18px;
+      color: #c0392b;
+      font-size: .88rem;
+      margin-bottom: 20px;
+    }
+    .error-box.active { display: block; }
+
+    /* ── Results ── */
+    #results { display: none; }
+    #results.active { display: block; }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .results-header h2 {
+      font-size: 1.2rem;
+      color: #1A1A1A;
+      font-weight: 700;
+    }
+
+    /* ── Estimate table ── */
+    .estimate-table-wrap {
+      background: #FFFFFF;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 0 0 1px #E5E5E5;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+    }
+    thead th {
+      background: #1A1A1A;
+      color: #fff;
+      padding: 11px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: .8rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    thead th:not(:first-child) { text-align: right; }
+
+    /* Category header row */
+    tr.category-header td {
+      background: #1A1A1A;
+      color: #fff;
+      font-weight: 700;
+      font-size: .88rem;
+      padding: 10px 14px;
+      letter-spacing: .02em;
+    }
+
+    /* Item rows */
+    tr.item-row td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #F0F0F0;
+      color: #1A1A1A;
+    }
+    tr.item-row:last-of-type td { border-bottom: none; }
+    tr.item-row td:not(:first-child) { text-align: right; }
+    tr.item-row:hover td { background: #F7FFFE; }
+
+    /* Subtotal row */
+    tr.subtotal-row td {
+      background: #E8FAF8;
+      font-weight: 700;
+      padding: 10px 14px;
+      color: #007A6A;
+      border-top: 2px solid #C0EDE8;
+    }
+    tr.subtotal-row td:not(:first-child) { text-align: right; }
+
+    /* Grand total row */
+    tr.grand-total-row td {
+      background: #1A1A1A;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      padding: 14px;
+    }
+    tr.grand-total-row td:not(:first-child) { text-align: right; }
+    tr.grand-total-row td .amount { color: #00C2A8; font-size: 1.1rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      header { height: auto; padding: 14px 16px; flex-wrap: wrap; }
+      table { font-size: .78rem; }
+      thead th, tr.category-header td,
+      tr.item-row td, tr.subtotal-row td,
+      tr.grand-total-row td { padding: 8px 10px; }
+      .results-header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">PCL</div>
+  <h1>AI Construction Estimating Tool</h1>
+</header>
+
+<main>
+  <!-- Input card -->
+  <div class="input-card">
+    <h2>Describe Your Project</h2>
+    <p>Provide a description of your construction project. Include building type, size, number of floors, and any special features.</p>
+    <textarea
+      id="projectDescription"
+      placeholder="e.g. 5-story mixed use building with retail ground floor, 4 floors of office, underground parking for 80 vehicles, located in downtown Calgary. Approximately 120,000 SF total."
+    ></textarea>
+    <div class="btn-row">
+      <button class="btn-primary" id="generateBtn" onclick="generateEstimate()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+        Generate Estimate
+      </button>
+      <button class="btn-secondary" id="resetBtn" onclick="resetForm()" style="display:none">Reset</button>
+    </div>
+  </div>
+
+  <!-- Spinner -->
+  <div class="spinner" id="spinner">
+    <div class="spinner-ring"></div>
+    <span>Generating your estimate — this may take 15–30 seconds…</span>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="results-header">
+      <h2 id="projectTitle">Project Estimate</h2>
+      <button class="btn-secondary" onclick="resetForm()">New Estimate</button>
+    </div>
+    <div class="estimate-table-wrap">
+      <table id="estimateTable">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Unit</th>
+            <th>Quantity</th>
+            <th>Unit Cost</th>
+            <th>Total Cost</th>
+          </tr>
+        </thead>
+        <tbody id="estimateBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+  const API_URL = 'https://ai-estimate-ecru.vercel.app';
+
+  function fmt(n) {
+    return '$' + Number(n).toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  async function generateEstimate() {
+    const desc = document.getElementById('projectDescription').value.trim();
+    if (!desc) {
+      showError('Please enter a project description before generating an estimate.');
+      return;
+    }
+
+    setLoading(true);
+    hideError();
+    hideResults();
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: desc }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `Server error (${res.status})`);
+      }
+      renderEstimate(data);
+    } catch (err) {
+      showError(err.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderEstimate(data) {
+    document.getElementById('projectTitle').textContent = data.projectTitle || 'Project Estimate';
+
+    const tbody = document.getElementById('estimateBody');
+    tbody.innerHTML = '';
+
+    (data.categories || []).forEach(cat => {
+      // Category header row
+      const hRow = document.createElement('tr');
+      hRow.className = 'category-header';
+      hRow.innerHTML = `<td colspan="5">${cat.name}</td>`;
+      tbody.appendChild(hRow);
+
+      // Item rows
+      (cat.items || []).forEach(item => {
+        const row = document.createElement('tr');
+        row.className = 'item-row';
+        row.innerHTML = `
+          <td>${item.item}</td>
+          <td>${item.unit}</td>
+          <td>${Number(item.quantity).toLocaleString()}</td>
+          <td>${fmt(item.unitCost)}</td>
+          <td>${fmt(item.total)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Subtotal row
+      const stRow = document.createElement('tr');
+      stRow.className = 'subtotal-row';
+      stRow.innerHTML = `
+        <td colspan="4">${cat.name} Subtotal</td>
+        <td>${fmt(cat.subtotal)}</td>
+      `;
+      tbody.appendChild(stRow);
+    });
+
+    // Grand total
+    const gtRow = document.createElement('tr');
+    gtRow.className = 'grand-total-row';
+    gtRow.innerHTML = `
+      <td colspan="4"><strong>TOTAL PROJECT COST</strong></td>
+      <td><span class="amount">${fmt(data.totalCost)}</span></td>
+    `;
+    tbody.appendChild(gtRow);
+
+    document.getElementById('results').classList.add('active');
+    document.getElementById('resetBtn').style.display = 'inline-flex';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function resetForm() {
+    document.getElementById('projectDescription').value = '';
+    hideResults();
+    hideError();
+    document.getElementById('resetBtn').style.display = 'none';
+    document.getElementById('projectDescription').focus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function setLoading(on) {
+    document.getElementById('generateBtn').disabled = on;
+    document.getElementById('spinner').classList.toggle('active', on);
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorBox');
+    el.textContent = msg;
+    el.classList.add('active');
+  }
+
+  function hideError() {
+    document.getElementById('errorBox').classList.remove('active');
+  }
+
+  function hideResults() {
+    document.getElementById('results').classList.remove('active');
+  }
+</script>
+</body>
+</html>
